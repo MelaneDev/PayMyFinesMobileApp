@@ -3,6 +3,7 @@ package com.example.paymyfine.screens.cart
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -22,6 +23,11 @@ import com.example.paymyfine.data.payment.PaymentViewModel
 import com.example.paymyfine.data.session.SessionStore
 import com.example.paymyfine.screens.payments.PaymentScreen
 import com.russhwolf.settings.Settings
+import androidx.compose.ui.text.style.TextOverflow
+import com.example.paymyfine.data.fines.CartItem
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+
 
 class CartScreen(
     private val sessionStore: SessionStore,
@@ -87,41 +93,57 @@ class CartScreen(
                 modifier = Modifier.weight(1f)
             ) {
 
-                items(cart) { item ->
+                items(
+                    items = cart,
+                    key = { it.noticeNumber }
+                ) { item ->
 
-                    Card(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(6.dp)
-                    ) {
-
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement =
-                                Arrangement.SpaceBetween
-                        ) {
-
-                            Column {
-                                Text(item.description)
-                                Text("R${item.amountInCents / 100.0}")
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            if (value == SwipeToDismissBoxValue.EndToStart) {
+                                manager.remove(item.noticeNumber)
+                                cart = manager.getCart()
+                                true
+                            } else {
+                                false
                             }
+                        }
+                    )
 
-                            IconButton(
-                                onClick = {
-                                    manager.remove(
-                                        item.noticeNumber
-                                    )
-                                    cart =
-                                        manager.getCart()
-                                }
+                    SwipeToDismissBox(
+                        state = dismissState,
+                        enableDismissFromStartToEnd = false,
+                        enableDismissFromEndToStart = true,
+                        backgroundContent = {
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 20.dp),
+                                contentAlignment = Alignment.CenterEnd
                             ) {
                                 Icon(
                                     Icons.Default.Delete,
-                                    null
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
                                 )
                             }
+                        }
+                    ) {
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            shape = MaterialTheme.shapes.large
+                        ) {
+                            CartItemContent(
+                                item = item,
+                                onDelete = {
+                                    manager.remove(item.noticeNumber)
+                                    cart = manager.getCart()
+                                }
+                            )
                         }
                     }
                 }
@@ -131,10 +153,24 @@ class CartScreen(
             // ⭐ TOTAL
             /////////////////////////////////////
 
-            Text(
-                "Total: R$total",
-                fontWeight = FontWeight.Bold
-            )
+            Divider(Modifier.padding(vertical = 8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Total",
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                Text(
+                    "R$total",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
 
             Spacer(Modifier.height(16.dp))
 
@@ -144,29 +180,61 @@ class CartScreen(
 
             Button(
                 onClick = {
-                    if (cart.isNotEmpty()) {
-                        navigator?.push(
-                            PaymentScreen(paymentVm)
-                        )
-                    }
-                }
-                ,
+                    navigator?.push(PaymentScreen(paymentVm))
+                },
+                enabled = cart.isNotEmpty(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
-                shape =
-                    RoundedCornerShape(40.dp),
-                colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor =
-                            Color.Yellow
-                    )
+                shape = RoundedCornerShape(40.dp)
             ) {
-                Text(
-                    "Proceed to Checkout",
-                    color = Color.Black
-                )
+                Text("Proceed to Checkout")
             }
         }
     }
+
+
+
+
+@Composable
+private fun CartItemContent(
+    item: CartItem, // replace with your actual type
+    onDelete: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+
+            Text(
+                text = item.description,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(Modifier.height(4.dp))
+
+            Text(
+                text = "R${item.amountInCents / 100.0}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        IconButton(onClick = onDelete) {
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = "Remove item",
+                tint = MaterialTheme.colorScheme.error
+            )
+        }
+    }
+  }
 }
